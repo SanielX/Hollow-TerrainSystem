@@ -1,0 +1,160 @@
+#pragma kernel CSCalculateErrorAndMinMaxHeight
+#pragma kernel CSClearErrorAndMinMaxHeight
+#pragma kernel CSConvertIntDeviation
+#pragma kernel CSCalculateMinMaxHeight
+//#pragma enable_d3d11_debug_symbols
+
+#include "../Includes/TerrainInstance.hlsl"
+#include "../Includes/TerrainHeightCommon.hlsl"
+
+#include "../Includes/ComputeHelpers.hlsl"
+
+Texture2D<float> TerrainLodPatchMap;
+Texture2D        Heightmap;
+Texture2D<uint2> TerrainVBuffer;
+uint             LODLevel;
+
+RWStructuredBuffer<WorkingTerrainPatch> RWTerrainPatches;
+StructuredBuffer<uint> TerrainIndexBuffer;
+
+[numthreads(8,8,1)]
+void CSCalculateMinMaxHeight(uint3 groupID : SV_GroupID, uint groupIndex : SV_GroupIndex)
+{
+    uint3 id = SwizzleDispatchThreadID(groupID, groupIndex);
+
+    uint nodeIndex = TerrainLodPatchMap.Load(int3(id.xy >> 4, 0)) * LOD_MAP_SIZE;
+    
+    float  pixelHeight = NormalizeUnityHeightmap(Heightmap.Load(int3(id.xy, 0)).r);
+    uint   quantizedHeight = pixelHeight * PT_FLOAT_MAX_SAFE_INTEGER;
+    
+    // uint2 vBufferValue = TerrainVBuffer.Load(int3(id.xy, 0));
+    // uint nodeIndex     = vBufferValue.x;
+
+    InterlockedMin(RWTerrainPatches[nodeIndex].MinMaxHeight.x, quantizedHeight);
+    InterlockedMax(RWTerrainPatches[nodeIndex].MinMaxHeight.y, quantizedHeight);
+}
+
+// After terrain was rendered into VBuffer we have to check every pixel to see how "far away" it is from height map
+[numthreads(8,8,1)]
+void CSCalculateErrorAndMinMaxHeight(uint3 groupID : SV_GroupID, uint groupIndex : SV_GroupIndex)
+{
+    uint3 dispatchID = uint3(SwizzleDispatchThreadID(groupID, groupIndex).xy, 0);
+    
+    int terrainW, terrainH;
+    Heightmap.GetDimensions(terrainW, terrainH);
+
+    float2 pixelUV         = dispatchID.xy / float2(terrainW, terrainH);
+    float  pixelHeight     = NormalizeUnityHeightmap(Heightmap.Load(int3(dispatchID.xy, 0)).r);
+    int    quantizedHeight = pixelHeight * PT_FLOAT_MAX_SAFE_INTEGER;
+
+    float3 pixelWorldPos = float3(pixelUV.x, pixelHeight, pixelUV.y) * PT_TerrainInstanceSize.xyz;
+    
+    uint2 vBufferValue = TerrainVBuffer.Load(dispatchID);
+    uint nodeIndex     = vBufferValue.x;
+    uint triangleIndex = vBufferValue.y;
+    
+    WorkingTerrainPatch patch = RWTerrainPatches[nodeIndex];
+
+    uint indexByteAddress = triangleIndex * 3;
+    // TODO: Figure out why Raw|Index doesn't work
+    uint index0  = TerrainIndexBuffer.Load(indexByteAddress  ); 
+    uint index1  = TerrainIndexBuffer.Load(indexByteAddress+1);
+    uint index2  = TerrainIndexBuffer.Load(indexByteAddress+2);
+    uint2 vertex0LocalId = PT_DecodeIndex(index0);
+    uint2 vertex1LocalId = PT_DecodeIndex(index1);
+    uint2 vertex2LocalId = PT_DecodeIndex(index2);
+    
+    float2 vertex0Coord = (float2(vertex0LocalId) / float(PT_GridPatchResolution - 1)) * patch.ScaleOffset.xy + patch.ScaleOffset.zw;
+    float2 vertex1Coord = (float2(vertex1LocalId) / float(PT_GridPatchResolution - 1)) * patch.ScaleOffset.xy + patch.ScaleOffset.zw;
+    float2 vertex2Coord = (float2(vertex2LocalId) / float(PT_GridPatchResolution - 1)) * patch.ScaleOffset.xy + patch.ScaleOffset.zw;
+
+    float2 vertex0UV = vertex0Coord / PT_TerrainInstanceSize.xz;
+    float2 vertex1UV = vertex1Coord / PT_TerrainInstanceSize.xz;
+    float2 vertex2UV = vertex2Coord / PT_TerrainInstanceSize.xz;
+
+    int3 vertex0ReadCoord = int3(vertex0UV * int2(terrainW, terrainH), 0);
+    int3 vertex1ReadCoord = int3(vertex1UV * int2(terrainW, terrainH), 0);
+    int3 vertex2ReadCoord = int3(vertex2UV * int2(terrainW, terrainH), 0);
+
+    vertex0ReadCoord.xy = clamp(vertex0ReadCoord.xy, 0, int2(terrainW, terrainH)-1);
+    vertex1ReadCoord.xy = clamp(vertex1ReadCoord.xy, 0, int2(terrainW, terrainH)-1);
+    vertex2ReadCoord.xy = clamp(vertex2ReadCoord.xy, 0, int2(terrainW, terrainH)-1);
+
+    float vertex0Height = NormalizeUnityHeightmap(Heightmap.Load(vertex0ReadCoord).r);
+    float vertex1Height = NormalizeUnityHeightmap(Heightmap.Load(vertex1ReadCoord).r);
+    float vertex2Height = NormalizeUnityHeightmap(Heightmap.Load(vertex2ReadCoord).r);
+
+    float3 vertex0WorldPos = float3(vertex0Coord.x, vertex0Height * PT_TerrainInstanceSize.y, vertex0Coord.y);
+    float3 vertex1WorldPos = float3(vertex1Coord.x, vertex1Height * PT_TerrainInstanceSize.y, vertex1Coord.y);
+    float3 vertex2WorldPos = float3(vertex2Coord.x, vertex2Height * PT_TerrainInstanceSize.y, vertex2Coord.y);
+    
+    float3 p10 = vertex1WorldPos - vertex0WorldPos;
+    float3 p20 = vertex2WorldPos - vertex0WorldPos;
+    
+    float3 triangleNormal         = normalize(cross(p10, p20));
+    float  trianglePlaneDistnance = -dot(triangleNormal, vertex0WorldPos);
+    
+    float distanceToPixel = dot(triangleNormal, pixelWorldPos) + trianglePlaneDistnance;
+    float error = distanceToPixel / PT_TerrainInstanceSize.y;
+
+    uint errorInt = saturate(error) * PT_FLOAT_MAX_SAFE_INTEGER;
+
+    int2 patchPivotTexelCoord = patch.TexelCoordinates * 16;
+    
+    // So uh, in terrain's VBuffer when two patches meet, like so
+    // Lets pretend that line between two patches is at x=1024
+    // *---*---*
+    // | ->|<- |
+    // *---*---*
+    // At this point of intersection pixels are not actually "defined"
+    // Meaning at x=1024 it might be filled with both left and right patch
+    // THEREFORE we'll add offset of 8 when testing thread to make sure we're inside correct patch... This is so fucking stupid
+    // Like completely retarded, the only reason for this to exist is because I didn't want to separate error calculation and min/max height
+    // into different compute dispatches
+    if(all(int2(dispatchID.xy-8) == patchPivotTexelCoord))
+    {
+        // This part of the code isolates one heightmap pixel so that GPU can write min/max heights
+        // by combining 4 of its children
+
+        // This works because of gometric progression, lowest LOD is 0, then 1, then 5 etc
+        // To find next children of every LOD level (LOD1 -> 4xLOD0) we just need to do pow(nodeIndex, 4) + 1
+        uint previousPatch0Index = (nodeIndex << 2) + 1; // 
+        uint previousPatch1Index = previousPatch0Index + 1; // Morton encoding means all of out 
+        uint previousPatch2Index = previousPatch0Index + 2; // 4 children are right next to each other in linear array, neat!
+        uint previousPatch3Index = previousPatch0Index + 3;
+
+        WorkingTerrainPatch previousPatch0 = RWTerrainPatches[previousPatch0Index];
+        WorkingTerrainPatch previousPatch1 = RWTerrainPatches[previousPatch1Index];
+        WorkingTerrainPatch previousPatch2 = RWTerrainPatches[previousPatch2Index];
+        WorkingTerrainPatch previousPatch3 = RWTerrainPatches[previousPatch3Index];
+        
+        uint minHeight = min(min(previousPatch0.MinMaxHeight.x, previousPatch1.MinMaxHeight.x),
+                             min(previousPatch2.MinMaxHeight.x, previousPatch3.MinMaxHeight.x));
+        
+        uint maxHeight = max(max(previousPatch0.MinMaxHeight.y, previousPatch1.MinMaxHeight.y),
+                             max(previousPatch2.MinMaxHeight.y, previousPatch3.MinMaxHeight.y));
+        RWTerrainPatches[nodeIndex].MinMaxHeight = uint2(minHeight, maxHeight);
+    }
+
+    InterlockedMax(RWTerrainPatches[nodeIndex].Deviation, errorInt);
+    //InterlockedMin(RWTerrainPatches[nodeIndex].MinMaxHeight.x, quantizedHeight);
+    //InterlockedMax(RWTerrainPatches[nodeIndex].MinMaxHeight.y, quantizedHeight);
+}
+
+[numthreads(64,1,1)]
+void CSClearErrorAndMinMaxHeight(uint3 id : SV_DispatchThreadID)
+{
+    RWTerrainPatches[id.x].Deviation    = 0;
+    RWTerrainPatches[id.x].MinMaxHeight = float2(PT_FLOAT_MAX_SAFE_INTEGER, 0);
+}
+
+
+[numthreads(64,1,1)]
+void CSConvertIntDeviation(uint3 id : SV_DispatchThreadID)
+{
+    float deviation     = float (RWTerrainPatches[id.x].Deviation)     / PT_FLOAT_MAX_SAFE_INTEGER;
+    float2 minMaxHeight = float2(RWTerrainPatches[id.x].MinMaxHeight) / PT_FLOAT_MAX_SAFE_INTEGER;
+    
+    RWTerrainPatches[id.x].Deviation    = asuint(deviation);
+    RWTerrainPatches[id.x].MinMaxHeight = asuint(minMaxHeight);
+}

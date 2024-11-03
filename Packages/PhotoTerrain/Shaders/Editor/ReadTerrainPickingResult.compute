@@ -1,0 +1,44 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+//#pragma enable_d3d11_debug_symbols
+
+#include "TerrainPickingCommon.hlsl"
+//#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+SamplerState sampler_point_clamp;
+
+float4x4 InverseMatrixVP;
+float4x4 unity_MatrixVP;
+float4x4 unity_InverseMatrixVP;
+
+RWStructuredBuffer<TerrainPickingResult> PickingResults;
+Texture2D                                SelectionTexture;
+Texture2D                                CameraDepthTexture;
+float2                                   PickingCoord;
+
+float3 positionFromDepth(in float2 uv, in float z, in float4x4 InvVP)
+{
+    float x = uv.x * 2.0f - 1.0f;
+    float y = (1.0 - uv.y) * 2.0f - 1.0f;
+    float4 position_s = float4(x, y, z, 1.0f);
+    float4 position_v = mul(InvVP, position_s);
+    return position_v.xyz / position_v.w;
+}
+
+[numthreads(1,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint dimX, dimY;
+    SelectionTexture.GetDimensions(dimX, dimY);
+    
+    float2 rg   = SelectionTexture  .Load(uint3(PickingCoord, 0)).xy;
+    float depth = CameraDepthTexture.Load(uint3(PickingCoord, 0)).x;
+
+    float3 normal = DecodePickingNormal(asuint(rg.r));
+
+    float2 uv = PickingCoord / float2(dimX, dimY);
+    float3 position = positionFromDepth(uv, depth, unity_InverseMatrixVP);
+
+    PickingResults[0].Position          = position; 
+    PickingResults[0].Normal            = normal.xyz;
+    PickingResults[0].TerrainInstanceID = rg.y;
+}

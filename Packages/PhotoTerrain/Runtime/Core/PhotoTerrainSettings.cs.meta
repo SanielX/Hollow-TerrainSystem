@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: 89215e418613b554896f9f0511603c8e
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - m_DefaultTerrainMaterial: {fileID: 2100000, guid: ef158d32dd0a457448942295368819c8, type: 2}
+  - m_VirtualTextureTerrainBlitMaterial: {fileID: 2100000, guid: 8cc5877865b11ce42b015dcb323e39c4, type: 2}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

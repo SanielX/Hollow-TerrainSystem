@@ -1,0 +1,231 @@
+#pragma kernel CSSelectLODPatches
+#pragma kernel CSComputeIndirectArgs
+#pragma kernel CSComputeLODMap
+#pragma kernel CSComputeLODSeams
+#pragma kernel CSSelectSpecificLOD
+#pragma kernel CSSelectLODPatchesWithRay
+//#pragma enable_d3d11_debug_symbols
+
+#include "Includes/TerrainInstance.hlsl"
+#include "UnityIndirect.cginc"
+
+struct CullingState
+{
+    uint pendingNodeCount;
+    uint nextPassNodeCount;
+    uint finalNodeCount;
+};
+
+RWStructuredBuffer<CullingState> CullingStateBuffer;
+
+StructuredBuffer<uint2>   WorkingBufferA; // Pending nodes
+RWStructuredBuffer<uint2> WorkingBufferB; // Nodes for the next pass
+
+RWStructuredBuffer<uint> VisiblePatchesList;
+
+RWStructuredBuffer<uint> SplitMapRW;
+
+Texture2D<float>               LODNodeMap;
+StructuredBuffer<TerrainPatch> LODNodeList;
+
+uint   LODTreeLevel;
+float3 CameraPosition;
+
+float LODMaxDistanceMultiplier;
+
+float3 LODSelectionRayOrigin;
+float3 LODSelectionRayDirection;
+
+float4 CameraFrustumPlanes[6];
+
+void SelectLODPatches(uint3 a, bool b);
+
+[numthreads(64,1,1)]
+void CSSelectLODPatches(uint3 id : SV_DispatchThreadID)
+{
+    SelectLODPatches(id, false);
+}
+
+[numthreads(64,1,1)]
+void CSSelectLODPatchesWithRay(uint3 id : SV_DispatchThreadID)
+{
+    SelectLODPatches(id, true);
+}
+
+bool IsInsideFrustumAABB( float3 center, float3 extents, float4 planes[6])
+{
+    bool isInside = true;
+    for (int i = 0; i < 6; i++)
+    {
+        float4 plane    = planes[i];
+        float3 signFlip = sign(plane.xyz);
+        float d        = dot(center + signFlip * extents, plane.xyz);
+        isInside = isInside & (d > -plane.w);
+    }
+
+    return isInside;
+}
+
+float2 IntersectAABB(float3 rayOrigin, float3 rayDir, float3 boxMin, float3 boxMax)
+{
+    float3 tMin  = (boxMin - rayOrigin) / rayDir;
+    float3 tMax  = (boxMax - rayOrigin) / rayDir;
+    float3 t1    = min(tMin, tMax);
+    float3 t2    = max(tMin, tMax);
+    float  tNear = max(max(t1.x, t1.y), t1.z);
+    float  tFar  = min(min(t2.x, t2.y), t2.z);
+
+    return float2(tNear, tFar);
+}
+
+void SelectLODPatches(uint3 id, bool useRay)
+{
+    if (id.x < CullingStateBuffer[0].pendingNodeCount)
+    {
+        uint2        lodCoord  = WorkingBufferA[id.x];
+        uint         nodeIndex = LODNodeMap.Load(uint3(lodCoord, LODTreeLevel)) * LOD_MAP_SIZE;
+        TerrainPatch patch     = LODNodeList[nodeIndex];
+
+        PT_Bounds patchBounds = PT_TerrainPatchBounds(patch);
+
+        // Culling patches based on ray intersection to speed up selection
+        float3 patchCenter  = (patchBounds.min+patchBounds.max) / 2.0;
+        float3 patchExtents = (patchBounds.max-patchBounds.min) / 2.0;
+        bool isInFrustum = IsInsideFrustumAABB(patchCenter, patchExtents, CameraFrustumPlanes);
+        
+        if(!isInFrustum)
+            return;
+        
+        if (useRay)
+        {
+            // Test against a little bit inflated bounds to avoid precision errors
+            const float inflate   = 0.5;
+            float2      intersect = IntersectAABB(LODSelectionRayOrigin, LODSelectionRayDirection, patchBounds.min - inflate, patchBounds.max + inflate);
+            if (intersect.x > intersect.y)
+            {
+                return;
+            }
+        }
+
+        float distanceToBounds = PT_DistanceToBounds(patchBounds, CameraPosition);
+
+        // float maxDistance = node.deviation * ((nearClip*verticalResolution) / (2 * pixelError));
+        float deviation   = PT_WorldSpacePatchDeviation(patch);
+        float maxDistance = deviation * LODMaxDistanceMultiplier;
+
+        bool splitNode        = !(LODTreeLevel == 0 || distanceToBounds >= maxDistance);
+        SplitMapRW[nodeIndex] = splitNode ? 1 : 0;
+        if (splitNode)
+        {
+            // Subdivide
+            uint nodeWriteAddress;
+            InterlockedAdd(CullingStateBuffer[0].nextPassNodeCount, 4, nodeWriteAddress);
+
+            WorkingBufferB[nodeWriteAddress + 0] = (lodCoord << 1);
+            WorkingBufferB[nodeWriteAddress + 1] = (lodCoord << 1) + uint2(0, 1);
+            WorkingBufferB[nodeWriteAddress + 2] = (lodCoord << 1) + uint2(1, 0);
+            WorkingBufferB[nodeWriteAddress + 3] = (lodCoord << 1) + uint2(1, 1);
+        }
+        else
+        {
+            // Add to final list
+            uint nodeWriteAddress;
+            InterlockedAdd(CullingStateBuffer[0].finalNodeCount, 1, nodeWriteAddress);
+            VisiblePatchesList[nodeWriteAddress] = nodeIndex;
+        }
+    }
+}
+
+uint                                        PassTotalNodeCountToNextJob;
+RWStructuredBuffer<uint3>                   WorkingIndirectArguments;
+RWStructuredBuffer<IndirectDrawIndexedArgs> TerrainInstanceIndirectArgsBuffer;
+
+[numthreads(1,1,1)]
+void CSComputeIndirectArgs(uint3 id : SV_DispatchThreadID)
+{
+    uint nextPassNodeCount                  = CullingStateBuffer[0].nextPassNodeCount;
+    CullingStateBuffer[0].pendingNodeCount  = nextPassNodeCount;
+    CullingStateBuffer[0].nextPassNodeCount = 0;
+
+    uint finalNodeCount                                = CullingStateBuffer[0].finalNodeCount;
+    TerrainInstanceIndirectArgsBuffer[0].instanceCount = finalNodeCount;
+
+    uint itemCount              = PassTotalNodeCountToNextJob > 0 ? finalNodeCount : nextPassNodeCount;
+    uint threadCount            = (itemCount + 63) / 64;
+    WorkingIndirectArguments[0] = uint3(threadCount, 1, 1);
+}
+
+StructuredBuffer<uint> SplitMap;
+RWTexture2D<int>       LODLevelMap;
+uint                   MaxLODLevel;
+
+[numthreads(8, 8, 1)]
+void CSComputeLODMap(uint2 id : SV_DispatchThreadID)
+{
+    for (int i = MaxLODLevel; i > 0; i--)
+    {
+        uint2 coord     = id.xy >> i;
+        uint  nodeIndex = LODNodeMap.Load(uint3(coord, i)) * LOD_MAP_SIZE;
+        bool  wasSplit  = SplitMap.Load(nodeIndex) > 0;
+
+        if (!wasSplit)
+        {
+            LODLevelMap[id.xy] = i;
+            return;
+        }
+    }
+    // Loop above returns if anything is written,
+    // if we got up to i==0 then that's only thing we can write, so write it
+    LODLevelMap[id.xy] = 0;
+}
+
+RWStructuredBuffer<uint>       LODSeamMap;
+StructuredBuffer<uint>         SRWVisiblePatchesList;
+StructuredBuffer<TerrainPatch> TerrainPatchList;
+
+[numthreads(64, 1, 1)]
+void CSComputeLODSeams(uint2 id : SV_DispatchThreadID)
+{
+    uint         nodeIndex = SRWVisiblePatchesList[id.x];
+    TerrainPatch patch     = TerrainPatchList[nodeIndex];
+    int          stepSize  = 1 << patch.Lod;
+
+    int center = LODLevelMap.Load(patch.TexelCoordinates.xy).x;
+    int right  = LODLevelMap.Load(patch.TexelCoordinates.xy + int2(stepSize, 0)).x;
+    int left   = LODLevelMap.Load(patch.TexelCoordinates.xy + int2(-1,       0)).x;
+    int up     = LODLevelMap.Load(patch.TexelCoordinates.xy + int2(0, stepSize)).x;
+    int down   = LODLevelMap.Load(patch.TexelCoordinates.xy + int2(0,       -1)).x;
+
+    int diffRight = max(0, right - center);
+    int diffLeft  = max(0, left  - center);
+    int diffUp    = max(0, up    - center);
+    int diffDown  = max(0, down  - center);
+
+    uint packedDiffs =  (diffRight & 0xFF)        |
+                       ((diffLeft  & 0xFF) << 8)  |
+                       ((diffUp    & 0xFF) << 16) |
+                       ((diffDown  & 0xFF) << 24);
+
+    LODSeamMap[nodeIndex] = packedDiffs;
+}
+
+uint CullLODLevel;
+uint CullLODSize;
+
+[numthreads(8, 8, 1)]
+void CSSelectSpecificLOD(uint2 id : SV_DispatchThreadID)
+{
+    uint w, h;
+    LODNodeMap.GetDimensions(w, h);
+    uint2 lodSize = uint2(w, h) >> CullLODLevel;
+    if (any(id >= lodSize))
+        return;
+
+    uint nodeIndex = LODNodeMap.Load(int3(id.xy, CullLODLevel)) * LOD_MAP_SIZE;
+
+    uint instanceIndex;
+    InterlockedAdd(TerrainInstanceIndirectArgsBuffer[0].instanceCount, 1, instanceIndex);
+
+    VisiblePatchesList[instanceIndex] = nodeIndex;
+    LODSeamMap[nodeIndex]             = 0;
+}

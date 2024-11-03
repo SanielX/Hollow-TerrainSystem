@@ -1,0 +1,112 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc17edc003eeab1418c44d505e9597b1, type: 3}
+  m_Name: _MATERIAL_PALETTE
+  m_EditorClassIdentifier: 
+  albedoArraySerialized:
+    referenceTextures:
+    - {fileID: 2800000, guid: b39336e67b68db14aa4a8a7f883e5aff, type: 3}
+    - {fileID: 2800000, guid: 8e255f57d15705e488d4db5425239501, type: 3}
+    - {fileID: 2800000, guid: 65c50b065f264b042a12153fb6454aa5, type: 3}
+    - {fileID: 2800000, guid: e18ae12a8286a594bae0eb036ce9bc12, type: 3}
+    - {fileID: 2800000, guid: 7e35234e281d141418972228ee38415e, type: 3}
+    - {fileID: 2800000, guid: ffa01093856b873448237de84289ee85, type: 3}
+    texture2DArray: {fileID: 18700000, guid: 0e9dbfec49274ee4cb128066c051f6db, type: 2}
+  normalArraySerialized:
+    referenceTextures:
+    - {fileID: 2800000, guid: a8a2fc863627f464e838ba616a1d5789, type: 3}
+    - {fileID: 2800000, guid: 297a3ddfc901318499e15b3a0c8ec74d, type: 3}
+    - {fileID: 2800000, guid: 28b218fb0e12c994d8f0b586f65545f2, type: 3}
+    - {fileID: 2800000, guid: 83f03b3c2b2d5df40898d8c2123239ae, type: 3}
+    - {fileID: 2800000, guid: d39a1b9e5d5c7b9499f579fa5c70a2a3, type: 3}
+    - {fileID: 2800000, guid: 5d46f74cdeedd7941ba8cd7cb7ebb40c, type: 3}
+    texture2DArray: {fileID: 18700000, guid: 48fd51cc11e67b442b882ab192b3440e, type: 2}
+  maskArraySerialized:
+    referenceTextures:
+    - {fileID: 2800000, guid: bd4c61d030690814097a2076498d1c75, type: 3}
+    - {fileID: 2800000, guid: 37bf2efdabb269f4b891344af9233d9e, type: 3}
+    - {fileID: 2800000, guid: e39c4b98a4756b043a23fb5b81e7b25a, type: 3}
+    - {fileID: 2800000, guid: 32c701976955001429b200f33da0d4a9, type: 3}
+    - {fileID: 2800000, guid: 30b51375156b10e4780537d5793a26c9, type: 3}
+    - {fileID: 2800000, guid: baca4d94b1d1d8046ab52ce1570a24c7, type: 3}
+    texture2DArray: {fileID: 18700000, guid: aa3e169ccaeac2742816af8b8f8a3d79, type: 2}
+  ompvNoise: {fileID: 2800000, guid: 6faa4c0dc24916840a246bb4857c1532, type: 3}
+  ompvNoiseSize: 0.1
+  ompvNoiseStrength: 0.005
+  albedoResolution: 1024
+  albedoFormat: 10
+  normalResolution: 1024
+  normalFormat: 27
+  maskResolution: 1024
+  maskFormat: 25
+  materials:
+  - albedo: {fileID: 2800000, guid: b39336e67b68db14aa4a8a7f883e5aff, type: 3}
+    normal: {fileID: 2800000, guid: a8a2fc863627f464e838ba616a1d5789, type: 3}
+    mask: {fileID: 2800000, guid: bd4c61d030690814097a2076498d1c75, type: 3}
+    scaleOffset: {x: 0.1, y: 0.1, z: 0, w: 0}
+    smoothness: 1
+    metallic: 1
+    normalStrength: 1
+    heightTransition: 0.348
+    heightRemap: {x: 0.041289687, y: 1}
+    physicsMaterial: {fileID: 0}
+  - albedo: {fileID: 2800000, guid: 8e255f57d15705e488d4db5425239501, type: 3}
+    normal: {fileID: 2800000, guid: 297a3ddfc901318499e15b3a0c8ec74d, type: 3}
+    mask: {fileID: 2800000, guid: 37bf2efdabb269f4b891344af9233d9e, type: 3}
+    scaleOffset: {x: 0.1, y: 0.1, z: 0, w: 0}
+    smoothness: 1
+    metallic: 1
+    normalStrength: 1
+    heightTransition: 0.365
+    heightRemap: {x: 0, y: 1}
+    physicsMaterial: {fileID: 0}
+  - albedo: {fileID: 2800000, guid: 65c50b065f264b042a12153fb6454aa5, type: 3}
+    normal: {fileID: 2800000, guid: 28b218fb0e12c994d8f0b586f65545f2, type: 3}
+    mask: {fileID: 2800000, guid: e39c4b98a4756b043a23fb5b81e7b25a, type: 3}
+    scaleOffset: {x: 0.01, y: 0.01, z: 0, w: 0}
+    smoothness: 1
+    metallic: 1
+    normalStrength: 1
+    heightTransition: 0.276
+    heightRemap: {x: 0, y: 1}
+    physicsMaterial: {fileID: 0}
+  - albedo: {fileID: 2800000, guid: e18ae12a8286a594bae0eb036ce9bc12, type: 3}
+    normal: {fileID: 2800000, guid: 83f03b3c2b2d5df40898d8c2123239ae, type: 3}
+    mask: {fileID: 2800000, guid: 32c701976955001429b200f33da0d4a9, type: 3}
+    scaleOffset: {x: 0.03, y: 0.03, z: 0, w: 0}
+    smoothness: 1
+    metallic: 1
+    normalStrength: 1
+    heightTransition: 0.497
+    heightRemap: {x: 0, y: 1.52}
+    physicsMaterial: {fileID: 0}
+  - albedo: {fileID: 2800000, guid: 7e35234e281d141418972228ee38415e, type: 3}
+    normal: {fileID: 2800000, guid: d39a1b9e5d5c7b9499f579fa5c70a2a3, type: 3}
+    mask: {fileID: 2800000, guid: 30b51375156b10e4780537d5793a26c9, type: 3}
+    scaleOffset: {x: 0.05, y: 0.05, z: 0, w: 0}
+    smoothness: 1
+    metallic: 1
+    normalStrength: 1
+    heightTransition: 0.497
+    heightRemap: {x: 0, y: 1}
+    physicsMaterial: {fileID: 0}
+  - albedo: {fileID: 2800000, guid: ffa01093856b873448237de84289ee85, type: 3}
+    normal: {fileID: 2800000, guid: 5d46f74cdeedd7941ba8cd7cb7ebb40c, type: 3}
+    mask: {fileID: 2800000, guid: baca4d94b1d1d8046ab52ce1570a24c7, type: 3}
+    scaleOffset: {x: 0.1, y: 0.1, z: 0, w: 0}
+    smoothness: 1
+    metallic: 1
+    normalStrength: 1
+    heightTransition: 0.626
+    heightRemap: {x: 0, y: 1}
+    physicsMaterial: {fileID: 0}
+  textureSet: {fileID: 0}

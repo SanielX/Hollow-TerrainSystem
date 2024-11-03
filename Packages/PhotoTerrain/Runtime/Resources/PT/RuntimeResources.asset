@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45e1ff64449b42069d52d9fce12db24a, type: 3}
+  m_Name: RuntimeResources
+  m_EditorClassIdentifier: 
+  BrushRegionCopyShader: {fileID: 4800000, guid: 05b849a10010706488f61c8c2da0c557, type: 3}
+  TerrainLODErrorCalculationShader: {fileID: 7200000, guid: abfc46ca0fb93364c9507cecf0bd2331, type: 3}
+  TerrainLODCullingShader: {fileID: 7200000, guid: 1f1d474769068fa48aefc4566eed5e94, type: 3}
+  PopulateIndirectionMapShader: {fileID: 7200000, guid: f8785f0a548e97440bcad697d49ec7fb, type: 3}
+  PatchMesh: {fileID: 11400000, guid: 0844586c5a912184a8cb776047fffbd0, type: 2}
+  DebugHeightShader: {fileID: 4800000, guid: e9688deef10b31b498e410107f7a3320, type: 3}
+  LayerCubeMesh: {fileID: -5495902117074765545, guid: 614e24351b18c9043be3fdec712b6b58, type: 3}
+  BrushPreviewMaterial: {fileID: 2100000, guid: 75b55e0a97995674c81bc907e51380f9, type: 2}
+  PhotoToUnityHeightmapBlitter: {fileID: 4800000, guid: e1679bf51966e9a45af332f9ad8c4ca2, type: 3}
+  PickingShader: {fileID: 7200000, guid: c2ebc47ccdf9f0148b3b684182ac0dbe, type: 3}
+  BrushUpdateShader: {fileID: 7200000, guid: 6f84a6c2b4b741049a18f1b071c0c1a2, type: 3}

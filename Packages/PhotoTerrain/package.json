@@ -1,0 +1,12 @@
+{
+  "name": "com.hollow.terrain-system",
+  "version": "1.0.0",
+  "displayName": "Hollow;TerrainSystem",
+  "description": "Replacement for built in unity terrain",
+  "unity": "2022.3",
+  "author": {
+    "name": "Alex Hollow",
+    "email": "alex.k.hollow@gmail.com"
+  },
+  "hideInEditor": false
+}

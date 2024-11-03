@@ -1,0 +1,96 @@
+#pragma kernel CSPrepareBrush
+#pragma kernel CSBrushComputeContextArea
+
+#pragma enable_d3d11_debug_symbols
+
+#include "TerrainPickingCommon.hlsl"
+#include "UnityIndirect.cginc"
+#include "PaintingCommon.hlsl"
+
+float3 BrushScale;
+float4 BrushRotation;
+
+float PixelSpacing;
+float BrushPixelBorder;
+float BrushMaxHeight;
+float BrushRegionSize; // spacing * (resolution-1)
+float2 ContextSize;
+StructuredBuffer<TerrainPickingResult>      PickingResult;
+
+RWStructuredBuffer<IndirectDrawIndexedArgs> BrushIndirectArgsUAV;
+RWStructuredBuffer<BrushState>              BrushStateUAV;
+
+[numthreads(1,1,1)]
+void CSPrepareBrush (uint3 id : SV_DispatchThreadID)
+{
+    TerrainPickingResult pick = PickingResult[0];
+    if(pick.TerrainInstanceID == 0)
+    {
+        BrushIndirectArgsUAV[0].instanceCount = 0;
+
+        BrushStateUAV[0].isValid = 0;
+    }
+    else
+    {
+        BrushIndirectArgsUAV[0].instanceCount = 1;
+
+        float3 brushPosition = pick.Position;
+       // brushPosition = float3(64, 0, 64);
+
+        float2 offset = ContextSize * 0.5; // BrushScale.xz * .5 * sqrt(2);
+        float2 brushMinPosition = floor((brushPosition.xz - offset) / PixelSpacing) * PixelSpacing;
+        float2 brushMaxPosition = floor((brushPosition.xz + offset) / PixelSpacing) * PixelSpacing; // (brushMinPosition) + BrushRegionSize; 
+
+        float3 brushBoundsMin = float3(brushMinPosition.x, 0,   brushMinPosition.y);
+        float3 brushBoundsMax = float3(brushMaxPosition.x, 512, brushMaxPosition.y);
+        
+        
+        BrushStateUAV[0].isValid            = 1;
+        BrushStateUAV[0].objectToWorld      = float4x4_TRS(brushPosition, BrushRotation, BrushScale);
+        BrushStateUAV[0].brushPosition      = brushPosition;
+        BrushStateUAV[0].brushSize          = BrushScale;
+        BrushStateUAV[0].brushRotation      = BrushRotation;
+        BrushStateUAV[0].brushBounds        = float4(brushMinPosition,
+                                                     brushMaxPosition);
+        BrushStateUAV[0].brushPickingNormal = pick.Normal;
+        BrushStateUAV[0].terrainInstanceId  = pick.TerrainInstanceID;
+
+        float4x4 proj       = ComputeProjectionMatrixForAABB(brushBoundsMax-brushBoundsMin);
+        float4x4 projDevice = float4x4_getGpuProjection(proj);
+        
+        float4x4 view = ComputeViewMatrixForAABB(brushBoundsMin, brushBoundsMax);
+        
+       // BrushStateUAV[0].projMatrix     = projDevice;
+       // BrushStateUAV[0].viewMatrix     = view;
+       // BrushStateUAV[0].viewProjMatrix = mul(proj, view);
+    }
+}
+
+uint _TargetContextIndex;
+float2 ContextResolution;
+[numthreads(1,1,1)]
+void CSBrushComputeContextArea()
+{
+    BrushState state = BrushStateUAV[0];
+    
+    float3 brushPosition = state.brushPosition;
+
+    float2 offset = ContextSize * 0.5;
+    float spacing = PixelSpacing;
+    float2 brushMinPosition = floor((brushPosition.xz - offset) / spacing) * spacing ;
+    float2 brushMaxPosition = brushMinPosition + (PixelSpacing * ContextResolution);
+
+    float3 brushBoundsMin = float3(brushMinPosition.x, 0,   brushMinPosition.y);
+    float3 brushBoundsMax = float3(brushMaxPosition.x, 512, brushMaxPosition.y);
+    
+    float4x4 proj       = ComputeProjectionMatrixForAABB(brushBoundsMax-brushBoundsMin);
+    float4x4 projDevice = float4x4_getGpuProjection(proj);
+    
+    float4x4 view = ComputeViewMatrixForAABB(brushBoundsMin, brushBoundsMax);
+    
+    BrushStateUAV[0].brushBounds = float4(brushMinPosition,
+                                          brushMaxPosition);
+   // BrushStateUAV[0].projMatrix     = projDevice;
+   // BrushStateUAV[0].viewMatrix     = view;
+    BrushStateUAV[0].viewProjMatrix[_TargetContextIndex] = mul(proj, view);
+}

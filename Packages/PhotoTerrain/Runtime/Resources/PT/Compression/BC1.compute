@@ -1,0 +1,14 @@
+#pragma kernel CSMain
+
+Texture2D          srcTex;
+RWTexture2D<uint2> dstTexture;
+
+#include "BC1Compress.hlsl"
+
+[numthreads(8, 8, 1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // What if we compressed all 3 textures at the same time using 3 CompressTextureBC1 calls?
+    CompressTextureBC1(srcTex, dstTexture, id);
+}
+

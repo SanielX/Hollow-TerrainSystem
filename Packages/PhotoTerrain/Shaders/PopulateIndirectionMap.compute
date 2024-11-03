@@ -1,0 +1,73 @@
+#pragma kernel AVT_UpscalePage
+#pragma enable_d3d11_debug_symbols
+
+RWTexture2D<float4> PreviousMip;
+RWTexture2D<float4> TargetMip;
+
+[numthreads(8, 8, 1)]
+void AVT_UpscalePage(uint3 id : SV_DispatchThreadID)
+{
+    int2 prevMipCoords = id.xy >> 1;
+    TargetMip[id.xy] = PreviousMip[prevMipCoords];
+}
+
+#pragma kernel AVT_WriteTextureUpdates
+
+struct TextureUpdate
+{
+    uint packedCoord;
+    uint packedPixelValue;
+};
+
+StructuredBuffer<TextureUpdate> TextureUpdateList;
+
+cbuffer Globals
+{
+    uint BaseUpdateIndex;
+    uint TextureUpdateCount;
+    uint IndirectionAABSSize;
+}
+
+// Write into TargetMip
+[numthreads(64, 1, 1)]
+void AVT_WriteTextureUpdates(uint3 id : SV_DispatchThreadID)
+{
+    if(id.x >= TextureUpdateCount)
+        return;
+
+    TextureUpdate updateRequest = TextureUpdateList[BaseUpdateIndex + id.x];
+    uint2 texelCoord = 0;
+    texelCoord.x = updateRequest.packedCoord & 0xFFFF;
+    texelCoord.y = updateRequest.packedCoord >> 16;
+
+    float4 pixelColor = 0;
+    pixelColor.x = ((updateRequest.packedPixelValue      ) & 0xFF) / 255.0;
+    pixelColor.y = ((updateRequest.packedPixelValue >>  8) & 0xFF) / 255.0;
+    pixelColor.z = ((updateRequest.packedPixelValue >> 16) & 0xFF) / 255.0;
+    pixelColor.w = ((updateRequest.packedPixelValue >> 24) & 0xFF) / 255.0;
+
+    // Store(texelCoord, pixelColor, id.y);
+    TargetMip[texelCoord] = pixelColor;
+}
+
+#pragma kernel AVT_WriteMissingPixels
+
+uint2 PixelWriteOffset;
+
+[numthreads(8, 8, 1)]
+void AVT_WriteMissingPixels(uint3 id : SV_DispatchThreadID)
+{
+    if(any(id.xy >= IndirectionAABSSize))
+        return;
+
+    id.xy += PixelWriteOffset;
+    
+    float4 currentValue = TargetMip[id.xy];
+    if(currentValue.w == 0)
+    {
+        uint2 prevMipCoord = id.xy >> 1;
+
+        float4 mipValue = float4(PreviousMip[prevMipCoord].xyz, 0);
+        TargetMip[id.xy] = mipValue;
+    }
+}

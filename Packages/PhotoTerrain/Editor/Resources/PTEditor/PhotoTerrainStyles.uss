@@ -1,0 +1,127 @@
+.selection-icon
+{
+
+    --unity-image-tint-color: rgba(255,255,255, 1);
+    width: 16px;
+    height: 16px;
+    
+    align-self: flex-end;
+}
+
+.selection-icon.selection-icon-disabled
+{
+    --unity-image-tint-color: rgba(255,255,255, .2);
+}
+
+.terrain-mat-palette--content
+{
+    width: 100%;
+    height: 100%;
+    
+    justify-content: space-between;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.material-palette-button
+{
+    width: 72px;
+    max-height: 96px;
+    border-width: 4px;
+}
+
+.material-palette-button:hover
+{
+    background-color: #0A0A0A;
+}
+
+.material-palette-button:focus
+{
+    background-color: #6A6A6A;
+}
+
+.material-palette-button-image
+{
+    width: 64px;
+    height: 64px;
+    flex-direction: row-reverse;
+}
+
+.material-palette-button-label
+{
+    -unity-text-align: upper-center;
+    text-overflow: ellipsis;
+}
+
+.material-selector
+{
+    align-self: center;
+    height: 16px;
+    width:  16px;
+}
+
+
+.material-selector-preview:focus
+{
+    border-color: rgb(61, 128, 223);
+}
+
+SplatMaterialButton>.unity-base-field__input
+{
+    display: none;
+}
+
+.material-selector-preview
+{
+    flex-grow: 1;
+    width: 16px;
+    height:16px;
+    
+    border-radius: 2px;
+    border-color: #0D0D0D;
+    background-color: rgb(42, 42, 42);
+    border-width: 1px;
+}
+
+.material-selector-preview.material-selector-preview-dragging-on
+{
+    border-color: rgb(61, 128, 223);
+}
+
+.palette-selector-root
+{
+    flex-grow: 1;
+    height: 100%;
+}
+
+#palette-selector-grid
+{
+    height:100%;
+}
+
+#palette-selector-currently-selected-area
+{
+    background-color: rgb(42, 42, 42);
+    width: 100%;
+    height: 100px;
+    
+    border-top-width: 1px;
+    border-top-color: rgb(13,13,13);
+    
+    flex-direction: row;
+    align-items: center;
+}
+
+#palette-current_icon
+{
+    margin-left: 5px;
+    margin-right: 5px;
+    width: 64px;
+    height: 64px;
+}
+
+.palette-root-visual-element
+{
+    border-color: rgb(13, 13, 13);
+    border-width: 1px;
+}

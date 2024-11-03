@@ -1,0 +1,48 @@
+﻿#pragma kernel CSCopyTerrainRegion
+#pragma enable_d3d11_debug_symbols
+
+#include "PaintingCommon.hlsl"
+
+StructuredBuffer<BrushState>             BrushStateBuffer;
+RWTexture2D<float4>                      Output;
+RWStructuredBuffer<TerrainTextureRegion> OutputRegions;
+
+Texture2D InputRegion;          // Input terrain tile
+float2    InputRegionSize;      // Tile size in meters
+float2    InputRegionOrigin;    // Tile origin (left-bottom corner)
+
+float  PixelSpacing; // distance between centers of 2 pixels of the tile
+
+uint OutputRadius;
+uint OutputRegionIndex;
+
+[numthreads(8, 8, 1)]
+void CSCopyTerrainRegion(uint3 id : SV_DispatchThreadID)
+{
+    uint w, h;
+    InputRegion.GetDimensions(w,h);
+    float2 position  = ((id.xy+0.5) / float2(w, h)) * InputRegionSize;
+           position += InputRegionOrigin;
+    
+    BrushState brush = BrushStateBuffer[0];
+    float2 brushMinPos = brush.brushBounds.xy;
+    int2  minPosition = floor(brushMinPos / PixelSpacing) - OutputRadius;
+    int2  pixPosition = floor(position    / PixelSpacing);
+    int2  writePos    = pixPosition - minPosition;
+    
+    // Assuming hardware does bounds check
+    if(id.x < w && id.y < h)
+        Output[writePos] = InputRegion.Load(int3(id.xy, 0));
+
+    if(all(id == 0))
+    {
+        uint bw, bh;
+        Output.GetDimensions(bw, bh);
+        
+        TerrainTextureRegion region;
+        region.worldBounds.xy = minPosition * PixelSpacing; // world-space position of left-bottom corner 
+        region.worldBounds.zw = region.worldBounds.xy + float2(bw,bh)*PixelSpacing;
+        
+        OutputRegions[OutputRegionIndex] = region;
+    }
+}

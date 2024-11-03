@@ -1,0 +1,22 @@
+fileFormatVersion: 2
+guid: 905532bbfab9969469bf6b083ab20477
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 5437ad5189c94ba39d2054db2f58721e, type: 3}
+  AlbedoFormat: 10
+  AlbedoResolution: 64
+  NormalFormat: 27
+  NormalResolution: 2048
+  MaskFormat: 25
+  MaskResolution: 2048
+  TextureSets:
+  - Name: Default-Checker-Gray
+    GUID: 869f3f96-313a-42e4-a69d-f642158253b2
+    Albedo: {fileID: 2800000, guid: 3b3127c8d7fb0bd4fa057cad14e080c5, type: 3}
+    Normal: {instanceID: 0}
+    Mask: {instanceID: 0}
