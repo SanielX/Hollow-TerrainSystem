@@ -24,8 +24,18 @@ Supports Unity 2022.3, **built-in render pipeline**.
 * Terrain works with scene picking (no outline though)
 
 Anyway if you want to poke at it, go to `TestScene.unity`.
+For render loop implementation check `PhotoTerrainBuiltInCamera` code. 
 
-For render loop implementation check `PhotoTerrainBuiltInCamera` code.
+## Known Issues
+* Shadows suck!
+* Terrain isn't visible when viewing scene in wireframe or looking at camera preview in scene window
+* AMD GPUs might act funny with virtual texture. I think I fixed it, but it may still be there
+* When using brush, first stroke might randomly produce incorrect result
+
+## Notes
+* When using brushes, use alt+lmb and move mouse up/down to change opacity, left/right to change size. Alt + scroll will rotate the brush.
+* If you modify material palette and want to make a build, use context menu -> "Create Texture Array" on palette asset. Texture arrays can't be created at runtime
+
 ## 3rd party
 * ['Betsy' GPU compressor](https://github.com/darksylinc/betsy)
 * [meshoptimizer](https://github.com/zeux/meshoptimizer)
