@@ -15,7 +15,7 @@ public class SmoothHeightTool : TerrainPaintTool
 
     private Material brushMat;
 
-    public override Texture2D GetIcon() => Resources.Load<Texture2D>("PhotoTerrainIcons/d_Smooth");
+    public override Texture2D GetIcon() => Resources.Load<Texture2D>("PTEditor/d_Smooth");
 
     protected override void OnEnable()
     {

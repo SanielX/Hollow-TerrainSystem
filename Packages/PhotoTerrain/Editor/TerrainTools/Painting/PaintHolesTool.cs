@@ -9,7 +9,7 @@ public class PaintHolesTool : TerrainPaintTool
 {
     private Material paintMaterial;
 
-    public override Texture2D GetIcon() => Resources.Load<Texture2D>("PhotoTerrainIcons/d_Holes");
+    public override Texture2D GetIcon() => Resources.Load<Texture2D>("PTEditor/d_Holes");
 
     protected override void OnEnable()
     {
