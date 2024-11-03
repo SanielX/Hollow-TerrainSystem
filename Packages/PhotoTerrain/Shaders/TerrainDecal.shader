@@ -30,9 +30,9 @@
 			#pragma fragment frag
 			#include "UnityCG.cginc"
 			#include "UnityStandardUtils.cginc"
-			#include "../Includes/TerrainInstance.hlsl"
-			#include "../Includes/TerrainHeightCommon.hlsl"
-			#include "../Includes/VirtualTexture.hlsl"
+			#include "Includes/TerrainInstance.hlsl"
+			#include "Includes/TerrainHeightCommon.hlsl"
+			#include "Includes/VirtualTexture.hlsl"
 
 			struct VertexOutput
 			{
